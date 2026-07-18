@@ -28,19 +28,23 @@ def _check_point(lon, lat, radius_meters):
         return "unknown"
 
 
-def get_lighting_data(coordinates, sample_every=8, radius_meters=30, max_workers=8):
+def get_lighting_data(coordinates, max_points=15, radius_meters=30, max_workers=4):
     """
     coordinates: list of [lon, lat] points from a route's geometry
-    sample_every: only check every Nth point (larger = faster, less precise)
+    max_points: always sample about this many points total, regardless of route length
     radius_meters: search radius around each point
-    max_workers: how many lighting checks to run in parallel
+    max_workers: how many lighting checks to run in parallel (kept modest to avoid
+                 rate-limiting the free Overpass server)
 
     Returns a dict summarizing lighting coverage along the route.
     """
-    sampled_points = coordinates[::sample_every]
-
-    if not sampled_points:
+    total_points = len(coordinates)
+    if total_points == 0:
         return {"lit_percent": 0, "unlit_percent": 0, "unknown_percent": 100, "points_checked": 0}
+
+    # Always sample roughly `max_points` points, spaced evenly, no matter the route length
+    step = max(1, total_points // max_points)
+    sampled_points = coordinates[::step][:max_points]
 
     results = []
     with ThreadPoolExecutor(max_workers=max_workers) as executor:

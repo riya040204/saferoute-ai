@@ -93,11 +93,17 @@ function App() {
       // Fetch lighting for each route separately, without blocking the map/route display
       data.routes.forEach(async (r, index) => {
         try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 12000); // give up after 12 sec
+
           const lightingRes = await fetch("http://127.0.0.1:8000/lighting", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(r.geometry),
+            signal: controller.signal,
           });
+          clearTimeout(timeoutId);
+
           const lightingData = await lightingRes.json();
           setRoutes((prev) => {
             const updated = [...prev];
@@ -106,7 +112,21 @@ function App() {
             return updated;
           });
         } catch (err) {
-          // lighting failed for this route — safety bar will just show "unknown", no crash
+          setRoutes((prev) => {
+            const updated = [...prev];
+            if (updated[index]) {
+              updated[index] = {
+                ...updated[index],
+                lighting: {
+                  lit_percent: 0,
+                  unlit_percent: 0,
+                  unknown_percent: 100,
+                  unavailable: true,
+                },
+              };
+            }
+            return updated;
+          });
         }
       });
     } catch (err) {
@@ -226,20 +246,26 @@ function App() {
                     ></div>
                   </div>
                   <div className="safety-legend">
-                    <span>
-                      <span
-                        className="legend-dot"
-                        style={{ background: "var(--lamp)" }}
-                      ></span>
-                      Lit {lighting.lit_percent}%
-                    </span>
-                    <span>
-                      <span
-                        className="legend-dot"
-                        style={{ background: "var(--risk)" }}
-                      ></span>
-                      Unlit {lighting.unlit_percent}%
-                    </span>
+                    {lighting.unavailable ? (
+                      <span>Lighting data unavailable for this route</span>
+                    ) : (
+                      <>
+                        <span>
+                          <span
+                            className="legend-dot"
+                            style={{ background: "var(--lamp)" }}
+                          ></span>
+                          Lit {lighting.lit_percent}%
+                        </span>
+                        <span>
+                          <span
+                            className="legend-dot"
+                            style={{ background: "var(--risk)" }}
+                          ></span>
+                          Unlit {lighting.unlit_percent}%
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
               );
