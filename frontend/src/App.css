@@ -224,6 +224,19 @@
   border-radius: 50%;
   margin-right: 4px;
 }
+.ai-explanation {
+  background: rgba(255, 180, 84, 0.08);
+  border: 1px solid rgba(255, 180, 84, 0.25);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.ai-explanation p {
+  margin: 6px 0 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--paper);
+}
 
 .map-area {
   flex: 1;

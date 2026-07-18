@@ -50,6 +50,8 @@ function App() {
 
   const startSuggestions = useGeocodeSearch(startQuery);
   const endSuggestions = useGeocodeSearch(endQuery);
+  const [explanation, setExplanation] = useState("");
+  const [explaining, setExplaining] = useState(false);
 
   const useMyLocation = () => {
     if (!navigator.geolocation) {
@@ -90,6 +92,17 @@ function App() {
       setRoutes(data.routes);
       setLoading(false);
 
+      // Fetch AI explanation once we have route + lighting basics (lighting may still be loading, that's fine)
+      setExplaining(true);
+      fetch("http://127.0.0.1:8000/explain", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ routes: data.routes }),
+      })
+        .then((res) => res.json())
+        .then((result) => setExplanation(result.explanation))
+        .catch(() => setExplanation(""))
+        .finally(() => setExplaining(false));
       // Fetch lighting for each route separately, without blocking the map/route display
       data.routes.forEach(async (r, index) => {
         try {
@@ -211,6 +224,16 @@ function App() {
           </p>
         )}
         {error && <p className="error-line">{error}</p>}
+        {explaining && <p className="status-line">Analyzing routes...</p>}
+
+        {explanation && (
+          <div className="ai-explanation">
+            <span className="field-label">AI Recommendation</span>
+            <p>{explanation}</p>
+          </div>
+        )}
+
+        {routes.length > 0 && <div className="route-cards">...</div>}
 
         {routes.length > 0 && (
           <div className="route-cards">
