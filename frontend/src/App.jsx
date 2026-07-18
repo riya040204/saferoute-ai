@@ -47,11 +47,12 @@ function App() {
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [sidebarExpanded, setSidebarExpanded] = useState(true);
+  const [explanation, setExplanation] = useState("");
+  const [explaining, setExplaining] = useState(false);
 
   const startSuggestions = useGeocodeSearch(startQuery);
   const endSuggestions = useGeocodeSearch(endQuery);
-  const [explanation, setExplanation] = useState("");
-  const [explaining, setExplaining] = useState(false);
 
   const useMyLocation = () => {
     if (!navigator.geolocation) {
@@ -92,7 +93,6 @@ function App() {
       setRoutes(data.routes);
       setLoading(false);
 
-      // Fetch AI explanation once we have route + lighting basics (lighting may still be loading, that's fine)
       setExplaining(true);
       fetch("http://127.0.0.1:8000/explain", {
         method: "POST",
@@ -103,11 +103,11 @@ function App() {
         .then((result) => setExplanation(result.explanation))
         .catch(() => setExplanation(""))
         .finally(() => setExplaining(false));
-      // Fetch lighting for each route separately, without blocking the map/route display
+
       data.routes.forEach(async (r, index) => {
         try {
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 12000); // give up after 12 sec
+          const timeoutId = setTimeout(() => controller.abort(), 12000);
 
           const lightingRes = await fetch("http://127.0.0.1:8000/lighting", {
             method: "POST",
@@ -150,7 +150,11 @@ function App() {
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
+      <aside className={`sidebar ${sidebarExpanded ? "expanded" : ""}`}>
+        <button
+          className="mobile-toggle"
+          onClick={() => setSidebarExpanded(!sidebarExpanded)}
+        ></button>
         <div>
           <div className="brand">
             <span className="brand-dot"></span>
@@ -219,9 +223,13 @@ function App() {
         </button>
 
         {!start && !end && (
-          <p className="status-line">
-            Set a starting point and destination to begin.
-          </p>
+          <div className="empty-state">
+            <span className="empty-state-icon">🌙</span>
+            <p>
+              Set a starting point and destination to see safety-scored routes
+              for your journey.
+            </p>
+          </div>
         )}
         {error && <p className="error-line">{error}</p>}
         {explaining && <p className="status-line">Analyzing routes...</p>}
@@ -233,7 +241,18 @@ function App() {
           </div>
         )}
 
-        {routes.length > 0 && <div className="route-cards">...</div>}
+        {loading && (
+          <div className="route-cards">
+            <div className="skeleton-card">
+              <div className="skeleton-line w-60"></div>
+              <div className="skeleton-line w-100"></div>
+            </div>
+            <div className="skeleton-card">
+              <div className="skeleton-line w-60"></div>
+              <div className="skeleton-line w-100"></div>
+            </div>
+          </div>
+        )}
 
         {routes.length > 0 && (
           <div className="route-cards">
