@@ -19,6 +19,10 @@ Given a start and end point, SafeRoute AI compares route options not just on tim
 An AI layer then explains the trade-off in plain language — e.g. _"This route stays on well-lit main roads but takes 4 minutes longer than the fastest option."_
 
 ## Status
+![Uploading image.png…]()
+![Uploading image.png…]()
+
+
 
 🚧 Under active development
 
