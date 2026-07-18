@@ -13,24 +13,33 @@ Given a start and end point, SafeRoute AI compares route options not just on tim
 - 🔦 **Street lighting** (via OpenStreetMap tagging)
 - 🏘️ **Population/activity density** nearby (isolated stretches score higher risk)
 - 📊 **Historical incident data**
-- 🕐 **Time of day** (the same route can be low-risk at 5 PM and high-risk at 11 PM)
 - 🌧️ **Live weather conditions**
 
 An AI layer then explains the trade-off in plain language — e.g. _"This route stays on well-lit main roads but takes 4 minutes longer than the fastest option."_
 
 ## Status
-![Uploading image.png…]()
-![Uploading image.png…]()
-
-
 
 🚧 Under active development
+
+**Working:**
+
+- Real-time routing via OSRM
+- GPS-based starting location
+- India-wide destination search
+- Street lighting analysis along routes (via OpenStreetMap/Overpass)
+- Graceful fallback when third-party data sources are unavailable
+
+**Planned:**
+
+- Historical incident data integration
+- Time-of-day and weather-based risk scoring
+- AI-generated route trade-off explanations
 
 ## Tech Stack
 
 - **Backend**: FastAPI (Python)
 - **Routing**: OSRM
-- **Geo data**: OpenStreetMap / Overpass API
+- **Geo data**: OpenStreetMap / Overpass API / Nominatim
 - **Frontend**: React + Leaflet
 - **AI**: Risk scoring model + LLM-based explanations (coming soon)
 
