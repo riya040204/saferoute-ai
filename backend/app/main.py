@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from app.routing import get_route
 from app.lighting import get_lighting_data
-
+from app.ai_explain import generate_route_explanation
 app = FastAPI(title="SafeRoute AI")
 
 app.add_middleware(
@@ -17,6 +17,15 @@ app.add_middleware(
 def read_root():
     return {"message": "SafeRoute AI backend is running 🚦"}
 
+@app.post("/explain")
+def explain(payload: dict):
+    try:
+        routes = payload.get("routes", [])
+        explanation = generate_route_explanation(routes)
+        return {"explanation": explanation}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
