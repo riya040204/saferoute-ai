@@ -9,6 +9,21 @@ import {
 import "leaflet/dist/leaflet.css";
 import { useState, useEffect } from "react";
 import "./App.css";
+import L from "leaflet";
+
+const startIcon = L.divIcon({
+  className: "custom-marker start-marker",
+  html: '<div class="marker-dot start-dot"></div>',
+  iconSize: [16, 16],
+  iconAnchor: [8, 8],
+});
+
+const endIcon = L.divIcon({
+  className: "custom-marker end-marker",
+  html: '<div class="marker-dot end-dot"></div>',
+  iconSize: [16, 16],
+  iconAnchor: [8, 8],
+});
 
 function RecenterMap({ position }) {
   const map = useMap();
@@ -155,39 +170,69 @@ function App() {
           className="mobile-toggle"
           onClick={() => setSidebarExpanded(!sidebarExpanded)}
         ></button>
-        <div>
+        <div className="brand-block">
           <div className="brand">
             <span className="brand-dot"></span>
             <span className="brand-name">SafeRoute</span>
           </div>
-          <p className="brand-tagline">night safety routing</p>
+          <p className="brand-tagline">Night safety routing</p>
         </div>
 
-        <div className="field-group">
-          <span className="field-label">From</span>
-          <div className="field-row">
-            <input
-              type="text"
-              value={startQuery}
-              onChange={(e) => {
-                setStartQuery(e.target.value);
-                setStart(null);
-              }}
-              placeholder="Search starting point..."
-            />
-            <button className="gps-toggle" onClick={useMyLocation}>
-              USE GPS
-            </button>
+        <div className="trip-card">
+          <div className="trip-rail">
+            <span className="trip-dot start"></span>
+            <span className="trip-line"></span>
+            <span className="trip-dot end"></span>
           </div>
-          {startSuggestions.length > 0 && (
-            <ul className="suggestions">
-              {startSuggestions.map((place) => (
-                <li key={place.place_id} onClick={() => selectStart(place)}>
-                  {place.display_name}
-                </li>
-              ))}
-            </ul>
-          )}
+
+          <div className="trip-inputs">
+            <div className="trip-input-row">
+              <input
+                type="text"
+                value={startQuery}
+                onChange={(e) => {
+                  setStartQuery(e.target.value);
+                  setStart(null);
+                }}
+                placeholder="Your location"
+              />
+              <button className="gps-toggle" onClick={useMyLocation}>
+                GPS
+              </button>
+            </div>
+
+            {startSuggestions.length > 0 && (
+              <ul className="suggestions">
+                {startSuggestions.map((place) => (
+                  <li key={place.place_id} onClick={() => selectStart(place)}>
+                    {place.display_name}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <div className="trip-input-row">
+              <input
+                type="text"
+                value={endQuery}
+                onChange={(e) => {
+                  setEndQuery(e.target.value);
+                  setEnd(null);
+                }}
+                placeholder="Where to?"
+              />
+            </div>
+
+            {endSuggestions.length > 0 && (
+              <ul className="suggestions">
+                {endSuggestions.map((place) => (
+                  <li key={place.place_id} onClick={() => selectEnd(place)}>
+                    {place.display_name}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
 
         <div className="field-group">
@@ -323,19 +368,19 @@ function App() {
           style={{ height: "100%", width: "100%" }}
         >
           <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution="&copy; OpenStreetMap contributors"
+            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
           />
 
           {start && <RecenterMap position={start} />}
 
           {start && (
-            <Marker position={[start.lat, start.lng]}>
+            <Marker position={[start.lat, start.lng]} icon={startIcon}>
               <Popup>Start</Popup>
             </Marker>
           )}
           {end && (
-            <Marker position={[end.lat, end.lng]}>
+            <Marker position={[end.lat, end.lng]} icon={endIcon}>
               <Popup>Destination</Popup>
             </Marker>
           )}
