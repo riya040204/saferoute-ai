@@ -2,7 +2,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from app.routing import get_route
 from app.lighting import get_lighting_data
-from app.ai_explain import generate_route_explanation
+from app.ai_explain import generate_route_explanation, generate_chat_reply
+
 app = FastAPI(title="SafeRoute AI")
 
 app.add_middleware(
@@ -13,9 +14,35 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.get("/")
 def read_root():
     return {"message": "SafeRoute AI backend is running 🚦"}
+
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
+
+
+@app.get("/route")
+def route(start_lat: float, start_lon: float, end_lat: float, end_lon: float, profile: str = "driving"):
+    try:
+        routes = get_route(start_lat, start_lon, end_lat, end_lon, profile)
+        return {"routes": routes}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/lighting")
+def lighting(geometry: dict):
+    try:
+        coordinates = geometry.get("coordinates", [])
+        result = get_lighting_data(coordinates)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/explain")
 def explain(payload: dict):
@@ -25,24 +52,15 @@ def explain(payload: dict):
         return {"explanation": explanation}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
-@app.get("/health")
-def health_check():
-    return {"status": "ok"}
 
-@app.get("/route")
-def route(start_lat: float, start_lon: float, end_lat: float, end_lon: float):
-    try:
-        routes = get_route(start_lat, start_lon, end_lat, end_lon)
-        return {"routes": routes}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/lighting")
-def lighting(geometry: dict):
+@app.post("/chat")
+def chat(payload: dict):
     try:
-        coordinates = geometry.get("coordinates", [])
-        result = get_lighting_data(coordinates)
-        return result
+        routes = payload.get("routes", [])
+        history = payload.get("history", [])
+        question = payload.get("question", "")
+        reply = generate_chat_reply(routes, history, question)
+        return {"reply": reply}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -2,7 +2,9 @@ import requests
 
 OSRM_BASE_URL = "https://router.project-osrm.org"
 
-def get_route(start_lat: float, start_lon: float, end_lat: float, end_lon: float):
+def get_route(start_lat: float, start_lon: float, end_lat: float, end_lon: float, profile: str = "driving"):
+    coords = f"{start_lon},{start_lat};{end_lon},{end_lat}"
+    url = f"{OSRM_BASE_URL}/route/v1/{profile}/{coords}"
     """
     Calls the public OSRM demo server to get a route between two points.
     OSRM expects coordinates as lon,lat (note: longitude first, not latitude).

@@ -25,10 +25,25 @@ const endIcon = L.divIcon({
   iconAnchor: [8, 8],
 });
 
+const rideIcon = L.divIcon({
+  className: "custom-marker ride-marker",
+  html: '<div class="marker-dot ride-dot"></div>',
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
+});
+
 function RecenterMap({ position }) {
   const map = useMap();
   useEffect(() => {
     if (position) map.setView([position.lat, position.lng], 14);
+  }, [position]);
+  return null;
+}
+
+function FollowLive({ position }) {
+  const map = useMap();
+  useEffect(() => {
+    if (position) map.setView([position.lat, position.lng], 16);
   }, [position]);
   return null;
 }
@@ -65,6 +80,13 @@ function App() {
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [explanation, setExplanation] = useState("");
   const [explaining, setExplaining] = useState(false);
+  const [chatHistory, setChatHistory] = useState([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [profile, setProfile] = useState("driving");
+  const [rideActive, setRideActive] = useState(false);
+  const [livePosition, setLivePosition] = useState(null);
+  const [watchId, setWatchId] = useState(null);
 
   const startSuggestions = useGeocodeSearch(startQuery);
   const endSuggestions = useGeocodeSearch(endQuery);
@@ -96,12 +118,41 @@ function App() {
     setEndQuery(place.display_name);
   };
 
+  const sendChatMessage = async () => {
+    if (!chatInput.trim() || routes.length === 0) return;
+    const question = chatInput.trim();
+    const newHistory = [...chatHistory, { role: "user", content: question }];
+    setChatHistory(newHistory);
+    setChatInput("");
+    setChatLoading(true);
+
+    try {
+      const res = await fetch("http://127.0.0.1:8000/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ routes, history: chatHistory, question }),
+      });
+      const data = await res.json();
+      setChatHistory([
+        ...newHistory,
+        { role: "assistant", content: data.reply },
+      ]);
+    } catch (err) {
+      setChatHistory([
+        ...newHistory,
+        { role: "assistant", content: "Something went wrong. Try again." },
+      ]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
   const fetchRoute = async () => {
     if (!start || !end) return;
     setLoading(true);
     setError(null);
     try {
-      const url = `http://127.0.0.1:8000/route?start_lat=${start.lat}&start_lon=${start.lng}&end_lat=${end.lat}&end_lon=${end.lng}`;
+      const url = `http://127.0.0.1:8000/route?start_lat=${start.lat}&start_lon=${start.lng}&end_lat=${end.lat}&end_lon=${end.lng}&profile=${profile}`;
       const response = await fetch(url);
       if (!response.ok) throw new Error("Failed to fetch route");
       const data = await response.json();
@@ -161,6 +212,42 @@ function App() {
       setError(err.message);
       setLoading(false);
     }
+  };
+
+  const startRide = () => {
+    if (!navigator.geolocation || !end) return;
+    setRideActive(true);
+
+    const id = navigator.geolocation.watchPosition(
+      (position) => {
+        setLivePosition({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      },
+      (err) => setError("GPS tracking failed: " + err.message),
+      { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 },
+    );
+    setWatchId(id);
+  };
+
+  const endRide = () => {
+    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    setWatchId(null);
+    setRideActive(false);
+    setLivePosition(null);
+  };
+
+  const haversineDistanceKm = (lat1, lon1, lat2, lon2) => {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
   return (
@@ -235,28 +322,19 @@ function App() {
           </div>
         </div>
 
-        <div className="field-group">
-          <span className="field-label">To</span>
-          <div className="field-row">
-            <input
-              type="text"
-              value={endQuery}
-              onChange={(e) => {
-                setEndQuery(e.target.value);
-                setEnd(null);
-              }}
-              placeholder="Search destination..."
-            />
-          </div>
-          {endSuggestions.length > 0 && (
-            <ul className="suggestions">
-              {endSuggestions.map((place) => (
-                <li key={place.place_id} onClick={() => selectEnd(place)}>
-                  {place.display_name}
-                </li>
-              ))}
-            </ul>
-          )}
+        <div className="mode-selector">
+          <button
+            className={`mode-btn ${profile === "driving" ? "active" : ""}`}
+            onClick={() => setProfile("driving")}
+          >
+            🏍️ Two-wheeler
+          </button>
+          <button
+            className={`mode-btn ${profile === "driving-car" ? "active" : ""}`}
+            onClick={() => setProfile("driving")}
+          >
+            🚗 Car
+          </button>
         </div>
 
         <button
@@ -283,6 +361,32 @@ function App() {
           <div className="ai-explanation">
             <span className="field-label">AI Recommendation</span>
             <p>{explanation}</p>
+
+            <div className="chat-box">
+              {chatHistory.map((msg, i) => (
+                <div key={i} className={`chat-msg ${msg.role}`}>
+                  {msg.content}
+                </div>
+              ))}
+              {chatLoading && (
+                <div className="chat-msg assistant chat-typing">
+                  Thinking...
+                </div>
+              )}
+
+              <div className="chat-input-row">
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && sendChatMessage()}
+                  placeholder="Ask about this route..."
+                />
+                <button onClick={sendChatMessage} disabled={chatLoading}>
+                  Ask
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -307,7 +411,11 @@ function App() {
                 unlit_percent: 0,
                 unknown_percent: 100,
               };
-              const minutes = Math.round(route.duration_seconds / 60);
+              const totalMinutes = Math.round(route.duration_seconds / 60);
+              const hours = Math.floor(totalMinutes / 60);
+              const mins = totalMinutes % 60;
+              const timeLabel =
+                hours > 0 ? `${hours} hr ${mins} min` : `${mins} min`;
               const km = (route.distance_meters / 1000).toFixed(1);
               return (
                 <div
@@ -315,7 +423,7 @@ function App() {
                   className={`route-card ${index === 0 ? "primary" : ""}`}
                 >
                   <div className="route-card-top">
-                    <span className="route-card-time">{minutes} min</span>
+                    <span className="route-card-time">{timeLabel}</span>
                     <span className="route-card-distance">{km} km</span>
                   </div>
                   <div className="safety-bar">
@@ -359,6 +467,35 @@ function App() {
             })}
           </div>
         )}
+
+        {routes.length > 0 && !rideActive && (
+          <button className="primary-btn ride-btn" onClick={startRide}>
+            Start Ride
+          </button>
+        )}
+
+        {rideActive && (
+          <div className="ride-panel">
+            <div className="ride-status">
+              <span className="ride-pulse"></span>
+              Ride in progress
+            </div>
+            {livePosition && end && (
+              <p className="ride-distance">
+                {haversineDistanceKm(
+                  livePosition.lat,
+                  livePosition.lng,
+                  end.lat,
+                  end.lng,
+                ).toFixed(1)}{" "}
+                km to destination
+              </p>
+            )}
+            <button className="end-ride-btn" onClick={endRide}>
+              End Ride
+            </button>
+          </div>
+        )}
       </aside>
 
       <div className="map-area">
@@ -372,7 +509,8 @@ function App() {
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
           />
 
-          {start && <RecenterMap position={start} />}
+          {start && !rideActive && <RecenterMap position={start} />}
+          {rideActive && livePosition && <FollowLive position={livePosition} />}
 
           {start && (
             <Marker position={[start.lat, start.lng]} icon={startIcon}>
@@ -382,6 +520,14 @@ function App() {
           {end && (
             <Marker position={[end.lat, end.lng]} icon={endIcon}>
               <Popup>Destination</Popup>
+            </Marker>
+          )}
+          {rideActive && livePosition && (
+            <Marker
+              position={[livePosition.lat, livePosition.lng]}
+              icon={rideIcon}
+            >
+              <Popup>You</Popup>
             </Marker>
           )}
 
