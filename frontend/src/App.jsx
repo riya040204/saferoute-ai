@@ -57,7 +57,7 @@ function useGeocodeSearch(query) {
     }
     const timer = setTimeout(async () => {
       try {
-        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=in&limit=5`;
+        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=in&limit=8&addressdetails=1&dedupe=1`;
         const res = await fetch(url);
         setSuggestions(await res.json());
       } catch {
@@ -87,6 +87,10 @@ function App() {
   const [rideActive, setRideActive] = useState(false);
   const [livePosition, setLivePosition] = useState(null);
   const [watchId, setWatchId] = useState(null);
+  const [weather, setWeather] = useState(null);
+  const [startSelected, setStartSelected] = useState(false);
+  const [endSelected, setEndSelected] = useState(false);
+  const [mapStyle, setMapStyle] = useState("dark");
 
   const startSuggestions = useGeocodeSearch(startQuery);
   const endSuggestions = useGeocodeSearch(endQuery);
@@ -111,11 +115,13 @@ function App() {
   const selectStart = (place) => {
     setStart({ lat: parseFloat(place.lat), lng: parseFloat(place.lon) });
     setStartQuery(place.display_name);
+    setStartSelected(true);
   };
 
   const selectEnd = (place) => {
     setEnd({ lat: parseFloat(place.lat), lng: parseFloat(place.lon) });
     setEndQuery(place.display_name);
+    setEndSelected(true);
   };
 
   const sendChatMessage = async () => {
@@ -160,10 +166,21 @@ function App() {
       setLoading(false);
 
       setExplaining(true);
+      let weatherData = null;
+      try {
+        const weatherRes = await fetch(
+          `http://127.0.0.1:8000/weather?lat=${end.lat}&lon=${end.lng}`,
+        );
+        weatherData = await weatherRes.json();
+        setWeather(weatherData);
+      } catch {
+        setWeather(null);
+      }
+
       fetch("http://127.0.0.1:8000/explain", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ routes: data.routes }),
+        body: JSON.stringify({ routes: data.routes, weather: weatherData }),
       })
         .then((res) => res.json())
         .then((result) => setExplanation(result.explanation))
@@ -280,6 +297,7 @@ function App() {
                 onChange={(e) => {
                   setStartQuery(e.target.value);
                   setStart(null);
+                  setStartSelected(false);
                 }}
                 placeholder="Your location"
               />
@@ -288,7 +306,7 @@ function App() {
               </button>
             </div>
 
-            {startSuggestions.length > 0 && (
+            {startSuggestions.length > 0 && !startSelected && (
               <ul className="suggestions">
                 {startSuggestions.map((place) => (
                   <li key={place.place_id} onClick={() => selectStart(place)}>
@@ -305,12 +323,13 @@ function App() {
                 onChange={(e) => {
                   setEndQuery(e.target.value);
                   setEnd(null);
+                  setEndSelected(false);
                 }}
                 placeholder="Where to?"
               />
             </div>
 
-            {endSuggestions.length > 0 && (
+            {endSuggestions.length > 0 && !endSelected && (
               <ul className="suggestions">
                 {endSuggestions.map((place) => (
                   <li key={place.place_id} onClick={() => selectEnd(place)}>
@@ -400,6 +419,20 @@ function App() {
               <div className="skeleton-line w-60"></div>
               <div className="skeleton-line w-100"></div>
             </div>
+          </div>
+        )}
+
+        {weather && weather.available && (
+          <div className="weather-chip">
+            <span>{Math.round(weather.temperature_c)}°C</span>
+            {weather.is_night && (
+              <span className="weather-tag night">Night</span>
+            )}
+            {weather.risky_conditions.length > 0 && (
+              <span className="weather-tag risk">
+                {weather.risky_conditions.join(", ")}
+              </span>
+            )}
           </div>
         )}
 
@@ -499,13 +532,23 @@ function App() {
       </aside>
 
       <div className="map-area">
+        <button
+          className="map-style-toggle"
+          onClick={() => setMapStyle(mapStyle === "dark" ? "light" : "dark")}
+        >
+          {mapStyle === "dark" ? "☀️ Light" : "🌙 Dark"}
+        </button>
         <MapContainer
           center={[22.9734, 78.6569]}
           zoom={5}
           style={{ height: "100%", width: "100%" }}
         >
           <TileLayer
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            url={
+              mapStyle === "dark"
+                ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+            }
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
           />
 

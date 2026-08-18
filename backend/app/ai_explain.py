@@ -6,14 +6,13 @@ load_dotenv()
 
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
-SYSTEM_PROMPT = """You are a blunt, practical night-safety advisor for two-wheeler riders in India.
+SYSTEM_PROMPT = """You are a practical night-safety advisor for two-wheeler riders in India, embedded in a route-planning app.
 
-STRICT RULES:
-- NEVER use these phrases or close variants: "be cautious", "stay alert", "exercise caution", "be careful", "stay safe", "take necessary precautions", "be extra vigilant".
-- Every sentence must contain a specific fact (a number, a place-type, or a concrete action) - no filler sentences.
-- If lighting data is unavailable, say exactly that in one clause, then immediately give ONE concrete action (e.g. "ride with high beam on unlit stretches", "prefer the main highway over service roads", "avoid this route after 11pm if riding solo", "keep fuel above half since the route has no towns for X km").
-- Keep total response under 60 words.
-- Plain text only, no markdown, no bullet points."""
+For the initial route assessment (comparing/describing routes): be blunt and specific, include real numbers, and if lighting data is missing, give exactly one concrete safety action instead of vague reassurance. Never use phrases like "be cautious", "stay alert", "exercise caution", "stay safe".
+
+For follow-up chat questions: answer ONLY what is actually asked, using the route data if relevant. Do NOT force a safety tip into every reply - only include one if the question is actually about safety, lighting, or route conditions. If the user makes small talk or asks something unrelated to the route (like "how are you"), respond briefly and naturally without route stats. If asked about data you don't have (weather, live accidents, traffic), say plainly that it's not available rather than making something up or attaching an unrelated tip.
+
+Keep responses under 50 words. Plain text, no markdown."""
 
 
 def _describe_route(route):
@@ -32,26 +31,40 @@ def _describe_route(route):
     return f"{minutes} min, {km} km, {lighting_desc}"
 
 
-def generate_route_explanation(routes):
+def _build_weather_note(weather):
+    if not weather or not weather.get("available"):
+        return ""
+    temp = weather.get("temperature_c")
+    risky = weather.get("risky_conditions", [])
+    note = f"\n\nCurrent weather at destination: {temp}°C"
+    if risky:
+        note += f", conditions: {', '.join(risky)}"
+    return note
+
+
+def generate_route_explanation(routes, weather=None):
     if not routes:
         return "No routes available to compare."
 
+    weather_note = _build_weather_note(weather)
+
     if len(routes) == 1:
         summary = _describe_route(routes[0])
-        user_prompt = f"Route: {summary}\n\nGive your assessment."
+        user_prompt = f"Route: {summary}{weather_note}\n\nGive your assessment."
     else:
         summaries = "\n".join([f"Route {i+1}: {_describe_route(r)}" for i, r in enumerate(routes)])
-        user_prompt = f"{summaries}\n\nRecommend one and say why, using the actual numbers."
+        user_prompt = f"{summaries}{weather_note}\n\nRecommend one and say why, using the actual numbers."
 
     try:
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-20b",
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0.3,
-            max_tokens=120,
+            max_tokens=400,
+            reasoning_effort="low",
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
@@ -64,18 +77,19 @@ def generate_chat_reply(routes, history, question):
     messages = [
         {
             "role": "system",
-            "content": SYSTEM_PROMPT + f"\n\nCurrent route context:\n{route_context}\n\nAnswer the rider's questions about THIS specific route using the data above. If asked something the data can't answer, say so plainly rather than guessing.",
-        },
+            "content": SYSTEM_PROMPT + f"\n\nRoute data for context (use only if the question is actually about the route):\n{route_context}",
+        }
     ]
     messages.extend(history)
     messages.append({"role": "user", "content": question})
 
     try:
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-20b",
             messages=messages,
-            temperature=0.3,
-            max_tokens=150,
+            temperature=0.4,
+            max_tokens=400,
+            reasoning_effort="low",
         )
         return response.choices[0].message.content.strip()
     except Exception as e:

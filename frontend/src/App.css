@@ -487,6 +487,19 @@
     transition: none !important;
   }
 }
+.map-style-toggle {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1000;
+  background: var(--dusk-2);
+  border: 1px solid rgba(255, 180, 84, 0.3);
+  color: var(--paper);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
 /* Custom map markers */
 .marker-dot {
   width: 16px;
@@ -519,6 +532,7 @@
 /* Darken map slightly so glowing routes pop more */
 .leaflet-container {
   background: var(--ink) !important;
+  filter: brightness(1.35) contrast(1.05);
 }
 
 .leaflet-popup-content-wrapper {
@@ -776,4 +790,33 @@
   background: rgba(255, 180, 84, 0.12);
   border-color: rgba(255, 180, 84, 0.4);
   color: var(--lamp);
+}
+.weather-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--paper);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.weather-tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-family: var(--font-body);
+}
+
+.weather-tag.night {
+  background: rgba(139, 149, 172, 0.15);
+  color: var(--mist);
+}
+
+.weather-tag.risk {
+  background: rgba(255, 107, 107, 0.15);
+  color: var(--risk);
 }
