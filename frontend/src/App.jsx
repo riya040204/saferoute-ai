@@ -133,7 +133,7 @@ function App() {
     setChatLoading(true);
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/chat", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ routes, history: chatHistory, question }),
@@ -158,7 +158,7 @@ function App() {
     setLoading(true);
     setError(null);
     try {
-      const url = `http://127.0.0.1:8000/route?start_lat=${start.lat}&start_lon=${start.lng}&end_lat=${end.lat}&end_lon=${end.lng}&profile=${profile}`;
+      const url = `${import.meta.env.VITE_API_URL}/route?start_lat=${start.lat}&start_lon=${start.lng}&end_lat=${end.lat}&end_lon=${end.lng}&profile=${profile}`;
       const response = await fetch(url);
       if (!response.ok) throw new Error("Failed to fetch route");
       const data = await response.json();
@@ -169,7 +169,7 @@ function App() {
       let weatherData = null;
       try {
         const weatherRes = await fetch(
-          `http://127.0.0.1:8000/weather?lat=${end.lat}&lon=${end.lng}`,
+          `${import.meta.env.VITE_API_URL}/weather?lat=${end.lat}&lon=${end.lng}`,
         );
         weatherData = await weatherRes.json();
         setWeather(weatherData);
@@ -177,7 +177,7 @@ function App() {
         setWeather(null);
       }
 
-      fetch("http://127.0.0.1:8000/explain", {
+      fetch(`${import.meta.env.VITE_API_URL}/explain`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ routes: data.routes, weather: weatherData }),
@@ -192,12 +192,15 @@ function App() {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 12000);
 
-          const lightingRes = await fetch("http://127.0.0.1:8000/lighting", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(r.geometry),
-            signal: controller.signal,
-          });
+          const lightingRes = await fetch(
+            `${import.meta.env.VITE_API_URL}/lighting`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(r.geometry),
+              signal: controller.signal,
+            },
+          );
           clearTimeout(timeoutId);
 
           const lightingData = await lightingRes.json();
